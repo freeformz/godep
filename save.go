@@ -121,11 +121,19 @@ func save(pkgs []string) error {
 		gnew.Packages = pkgs
 	}
 
-	a, err := LoadPackages(pkgs...)
+	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	err = gnew.fill(a, dot.ImportPath)
+	ctx, err := NewContext(os.Getenv("GOPATH"), cwd, pkgs...)
+	if err != nil {
+		return err
+	}
+	var pl []*Package
+	for _, p := range ctx.BasePackages {
+		pl = append(pl, &p)
+	}
+	err = gnew.fill(pl, dot.ImportPath)
 	if err != nil {
 		return err
 	}
@@ -182,7 +190,7 @@ func save(pkgs []string) error {
 			rewritePaths = append(rewritePaths, dep.ImportPath)
 		}
 	}
-	return rewrite(a, dot.ImportPath, rewritePaths)
+	return rewrite(pl, dot.ImportPath, rewritePaths)
 }
 
 type revError struct {
