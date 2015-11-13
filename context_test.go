@@ -123,7 +123,7 @@ func TestContext(t *testing.T) {
 
 	var scratch = filepath.Join(wd, "godeptest")
 	defer os.RemoveAll(scratch)
-	for _, test := range cases {
+	for i, test := range cases {
 		err = os.RemoveAll(scratch)
 		if err != nil {
 			t.Fatal(err)
@@ -148,7 +148,7 @@ func TestContext(t *testing.T) {
 			t.Error(err)
 		}
 
-		checkTree(t, &node{src, "", test.wantTree})
+		checkTree(t, i, &node{src, "", test.wantTree})
 
 		checkContext(t, c, &node{src, test.comment, test.wantPackages})
 	}
