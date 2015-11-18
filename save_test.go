@@ -30,11 +30,11 @@ import (
 `))
 )
 
-func pkg(name string, pkg ...string) string {
+func pkg(name string, imports ...string) string {
 	v := struct {
 		Name    string
 		Imports []string
-	}{name, pkg}
+	}{name, imports}
 	var buf bytes.Buffer
 	err := pkgtpl.Execute(&buf, v)
 	if err != nil {

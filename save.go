@@ -125,12 +125,12 @@ func save(pkgs []string) error {
 	if err != nil {
 		return err
 	}
-	ctx, err := NewContext(os.Getenv("GOPATH"), cwd, pkgs...)
+	ctx, err := NewContext(cwd, pkgs...)
 	if err != nil {
 		return err
 	}
 	var pl []*Package
-	for _, p := range ctx.BasePackages {
+	for _, p := range ctx.SpecPackages {
 		pl = append(pl, &p)
 	}
 	err = gnew.fill(pl, dot.ImportPath)
