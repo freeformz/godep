@@ -5,7 +5,15 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
+
+// isDir returns true if the path is a directory, false otherwise
+func isDir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
 
 // assumes output like
 // GOROOT="/a/path/to/somehwere"
@@ -40,4 +48,55 @@ func determineGOROOT() (string, error) {
 		return gr, ErrMissingGOROOT
 	}
 	return gr, nil
+}
+
+func packageFromPath(path string) (*Package, error) {
+	if !hasGoFiles(path) {
+		return nil, ErrPackageNotFound{path}
+	}
+	return nil, nil
+}
+
+func hasGoFiles(path string) bool {
+	m, err := filepath.Glob(filepath.Join(path, "*.go"))
+	return err == nil && len(m) > 0
+}
+
+func inTestData(sub string) bool {
+	return strings.Contains(sub, "/testdata/") || strings.HasSuffix(sub, "/testdata") || strings.HasPrefix(sub, "testdata/") || sub == "testdata"
+}
+
+// go/build:build.go:157
+func hasSubdir(root, dir string) (string, bool) {
+	const sep = string(filepath.Separator)
+	root = filepath.Clean(root)
+	if !strings.HasSuffix(root, sep) {
+		root += sep
+	}
+	dir = filepath.Clean(dir)
+	if !strings.HasPrefix(dir, root) {
+		return "", false
+	}
+	return filepath.ToSlash(dir[len(root):]), true
+}
+
+func hasSubdirExpanded(root, dir string) (string, bool) {
+	// Try using paths we received.
+	if rel, ok := hasSubdir(root, dir); ok {
+		return rel, ok
+	}
+
+	// Try expanding symlinks and comparing
+	// expanded against unexpanded and
+	// expanded against expanded.
+	rootSym, _ := filepath.EvalSymlinks(root)
+	dirSym, _ := filepath.EvalSymlinks(dir)
+
+	if rel, ok := hasSubdir(rootSym, dir); ok {
+		return rel, ok
+	}
+	if rel, ok := hasSubdir(root, dirSym); ok {
+		return rel, ok
+	}
+	return hasSubdir(rootSym, dirSym)
 }

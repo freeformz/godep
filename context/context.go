@@ -1,6 +1,7 @@
 package context
 
 import (
+	"go/build"
 	"go/parser"
 	"go/token"
 	"log"
@@ -9,8 +10,8 @@ import (
 	"strings"
 )
 
-// Context used to hold information about go packages imported by a set of
-// PackageSpecs from the current working directory
+// Context used to hold information about go packages in a directory inside of
+// a Go workspace
 type Context struct {
 	// GoPath contains the individual parts of the GOPATH used by the context
 	GOPATH []string
@@ -34,28 +35,10 @@ type Context struct {
 	cache map[string]*Package
 }
 
-func hasGoFiles(path string) bool {
-	m, err := filepath.Glob(filepath.Join(path, "*.go"))
-	if err != nil {
-		return false
-	}
-	return len(m) > 0
-}
-
 // dirInPaths determines if dir is in any of the provided paths
-// dir and path elements are rendered to their Abs values before comparison
 func dirInPaths(dir string, paths ...string) bool {
 	var found bool
-	var err error
-	dir, err = filepath.Abs(dir)
-	if err != nil {
-		return false
-	}
 	for _, p := range paths {
-		p, err = filepath.Abs(p)
-		if err != nil {
-			return false
-		}
 		if strings.HasPrefix(dir, p) {
 			found = true
 			break
@@ -78,22 +61,52 @@ func (c Context) packageNameForPath(pkgPath string) (string, error) {
 	return "", notInGOPATH{pkgPath}
 }
 
-// PackageAtPath contructs a Package for the given path
-func (c Context) PackageAtPath(p string) (Package, error) {
-	pkg := Package{Dir: p}
-	p, err := filepath.Abs(p)
-	if err != nil {
-		return pkg, err
+// Package for the named import path, with local imports being relative to the srcDir
+func (c Context) Package(path string, srcDir string) (*Package, error) {
+	p := &Package{ImportPath: path}
+	if path == "" {
+		return p, ErrInvalidImportPath{path}
 	}
-	pkg.Dir = p
-	pkgName, err := c.packageNameForPath(p)
+
+	if build.IsLocalImport(path) {
+		if srcDir == "" {
+			return p, ErrImportRelativeUnknown{path}
+		}
+		if !filepath.IsAbs(path) {
+			p.Dir = filepath.Join(srcDir, path)
+		}
+		rootsrc := filepath.Join(c.GOROOT, "src")
+		if sub, ok := hasSubdirExpanded(rootsrc, p.Dir); ok && !inTestData(sub) {
+			p.Goroot = true
+			p.ImportPath = sub
+			p.Root = c.GOROOT
+			goto Found
+		}
+	}
+Found:
+	return p, nil
+}
+
+// PackageDir is like Package but processes the Go package found in the named direcdtory.
+func (c Context) PackageDir(dir string) (*Package, error) {
+	return c.Package(".", dir)
+}
+
+// PackageAtPath contructs a Package for the given path
+func (c Context) PackageAtPath(path string) (Package, error) {
+	pkg := Package{Dir: path}
+	pkg.Dir = path
+	pkgName, err := c.packageNameForPath(path)
 	if err != nil {
-		return pkg, unableToDeterminePackageNameError{p}
+		return pkg, unableToDeterminePackageNameError{path}
 	}
 	pkg.ImportPath = pkgName
-	matches, err := filepath.Glob(filepath.Join(p, "*.go"))
+	matches, err := filepath.Glob(filepath.Join(path, "*.go"))
 	if err != nil {
 		return pkg, err
+	}
+	if len(matches) == 0 {
+		return pkg, ErrPackageNotFound{path}
 	}
 	for _, f := range matches {
 		imports, err := parseGoFile(f)
@@ -150,10 +163,6 @@ func (c Context) packagesInContext() []*Package {
 		godepWorkspace := strings.HasSuffix(p, "Godeps") && elem == "_workspace"
 		if strings.HasPrefix(elem, "_") && !godepWorkspace {
 			return filepath.SkipDir
-		}
-
-		if !hasGoFiles(path) {
-			return nil
 		}
 
 		pkg, err := c.PackageAtPath(path)

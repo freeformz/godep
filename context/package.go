@@ -14,6 +14,8 @@ type Package struct {
 	TestImports []string
 	GoFiles     []string
 	Imports     []string
+	Goroot      bool // Package is in GOROOT (standard lib)
+	Root        string
 }
 
 // matchPattern(pattern)(name) reports whether

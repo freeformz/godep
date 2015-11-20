@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	// ErrMissingGOROOT : Unable to determine GOROOT
+	// ErrMissingGOROOT you are
 	ErrMissingGOROOT = errors.New("Unable to determine GOROOT.")
 )
 
@@ -22,9 +22,23 @@ func (err notInGOPATH) Error() string {
 	return fmt.Sprintf("Not in $GOPATH: %s", err.p)
 }
 
-// ErrackageNotFound is the context it was asked to be found
+// ErrPackageNotFound is the context it was asked to be found
 type ErrPackageNotFound struct{ p string }
 
 func (err ErrPackageNotFound) Error() string {
 	return fmt.Sprintf("Package Not Found: %s", err.p)
+}
+
+// ErrInvalidImportPath specified error
+type ErrInvalidImportPath struct{ p string }
+
+func (err ErrInvalidImportPath) Error() string {
+	return fmt.Sprint("Invalid import path:", err.p)
+}
+
+// ErrImportRelativeUnknown directory
+type ErrImportRelativeUnknown struct{ p string }
+
+func (err ErrImportRelativeUnknown) Error() string {
+	return fmt.Sprint("Import relative to unknown directory:", err.p)
 }
