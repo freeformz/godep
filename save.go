@@ -93,6 +93,8 @@ func dotPackage() (*Package, error) {
 }
 
 func save(pkgs []string) error {
+	listPackage(".")
+	os.Exit(0)
 	dot, err := dotPackage()
 	if err != nil {
 		return err
@@ -121,19 +123,11 @@ func save(pkgs []string) error {
 		gnew.Packages = pkgs
 	}
 
-	cwd, err := os.Getwd()
+	a, err := LoadPackages(pkgs...)
 	if err != nil {
 		return err
 	}
-	ctx, err := NewContext(cwd, pkgs...)
-	if err != nil {
-		return err
-	}
-	var pl []*Package
-	for _, p := range ctx.SpecPackages {
-		pl = append(pl, &p)
-	}
-	err = gnew.fill(pl, dot.ImportPath)
+	err = gnew.fill(a, dot.ImportPath)
 	if err != nil {
 		return err
 	}
@@ -190,7 +184,7 @@ func save(pkgs []string) error {
 			rewritePaths = append(rewritePaths, dep.ImportPath)
 		}
 	}
-	return rewrite(pl, dot.ImportPath, rewritePaths)
+	return rewrite(a, dot.ImportPath, rewritePaths)
 }
 
 type revError struct {
