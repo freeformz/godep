@@ -1,15 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"go/build"
 	"go/parser"
 	"go/token"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -17,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/kr/pretty"
 )
 
 // Package represents a Go package.
@@ -55,32 +54,16 @@ func LoadPackages(names ...string) (a []*Package, err error) {
 	if len(names) == 0 {
 		return nil, nil
 	}
-	args := []string{"list", "-e", "-json"}
-	cmd := exec.Command("go", append(args, names...)...)
-	r, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	cmd.Stderr = os.Stderr
-	err = cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-	d := json.NewDecoder(r)
-	for {
-		info := new(Package)
-		err = d.Decode(info)
-		if err == io.EOF {
-			break
-		}
+	pn := importPaths(names)
+	fmt.Println("LoadPackages: ", pn)
+	for _, i := range importPaths(names) {
+		fmt.Printf("listPackage(%s)\n", i)
+		p, err := listPackage(i)
 		if err != nil {
-			info.Error.Err = err.Error()
+			pretty.Print(err)
+			return nil, err
 		}
-		a = append(a, info)
-	}
-	err = cmd.Wait()
-	if err != nil {
-		return nil, err
+		a = append(a, p)
 	}
 	return a, nil
 }

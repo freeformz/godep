@@ -93,8 +93,6 @@ func dotPackage() (*Package, error) {
 }
 
 func save(pkgs []string) error {
-	listPackage(".")
-	os.Exit(0)
 	dot, err := dotPackage()
 	if err != nil {
 		return err

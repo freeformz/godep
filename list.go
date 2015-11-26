@@ -71,9 +71,20 @@ Next:
 	}
 }
 
+func checkGoroot(p *build.Package, err error) (*build.Package, error) {
+	if p.Goroot && err != nil {
+		buildContext.UseAllFiles = false
+		p, err = buildContext.Import(p.ImportPath, p.Dir, 0)
+		buildContext.UseAllFiles = true
+	}
+	return p, err
+}
+
 // listPackage specified by path
 func listPackage(path string) (*Package, error) {
 	var dir string
+	var lp *build.Package
+	var err error
 	deps := make(map[string]bool)
 	imports := make(map[string]bool)
 	if build.IsLocalImport(path) {
@@ -84,8 +95,15 @@ func listPackage(path string) (*Package, error) {
 				dir = abs
 			}
 		}
+		lp, err = buildContext.ImportDir(dir, 0)
+	} else {
+		dir, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		lp, err = buildContext.Import(path, dir, 0)
+		lp, err = checkGoroot(lp, err)
 	}
-	lp, err := buildContext.ImportDir(dir, 0)
 	p := &Package{
 		Dir:            lp.Dir,
 		Root:           lp.Root,
@@ -98,6 +116,7 @@ func listPackage(path string) (*Package, error) {
 		XTestGoFiles:   lp.XTestGoFiles,
 		IgnoredGoFiles: lp.IgnoredGoFiles,
 	}
+	p.Standard = lp.Goroot && lp.ImportPath != "" && !strings.Contains(lp.ImportPath, ".")
 	if err != nil {
 		return p, err
 	}
@@ -133,9 +152,7 @@ func listPackage(path string) (*Package, error) {
 				switch err.(type) {
 				case *build.MultiplePackageError:
 					fmt.Println("MultiplePackageError, importing Goroot package, trying w/o UseAllFiles")
-					buildContext.UseAllFiles = false
-					dp, _ = buildContext.Import(i, ip.Dir, 0)
-					buildContext.UseAllFiles = true
+					dp, err = checkGoroot(dp, err)
 				default:
 					pretty.Print(err)
 					fmt.Println(err.Error())
