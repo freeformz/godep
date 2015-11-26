@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	pathpkg "path"
-
-	"github.com/kr/pretty"
 )
 
 var (
@@ -20,7 +18,6 @@ var (
 
 func init() {
 	buildContext.UseAllFiles = true
-	//build.Default.BuildTags = append(build.Default.BuildTags, []string{"linux", "windows", "osx"}...)
 }
 
 type packageContext struct {
@@ -56,17 +53,17 @@ Next:
 		pc := packageContext{pkg, i}
 		for _, epc := range ds.delivered {
 			if epc == pc {
-				fmt.Println("ctxts epc == pc, skipping", epc, pc)
+				verboseln("ctxts epc == pc, skipping", epc, pc)
 				continue Next
 			}
 		}
 		for _, epc := range ds.todo {
 			if epc == pc {
-				fmt.Println("ctxts epc == pc, skipping", epc, pc)
+				verboseln("ctxts epc == pc, skipping", epc, pc)
 				continue Next
 			}
 		}
-		fmt.Println("Adding pc:", pc)
+		verboseln("Adding pc:", pc)
 		ds.todo = append(ds.todo, pc)
 	}
 }
@@ -120,21 +117,21 @@ func listPackage(path string) (*Package, error) {
 	if err != nil {
 		return p, err
 	}
-	fmt.Println("Looking For Package:", path, "in", dir)
-	pretty.Print(lp)
+	verboseln("Looking For Package:", path, "in", dir)
+	ppln(lp)
 
 	ds := depScanner{}
 	ds.Add(lp, lp.Imports...)
 	for ds.Next() {
 		ip, i := ds.Current()
 
-		fmt.Printf("Processing import %s for %s\n", i, ip.Dir)
+		verbosef("Processing import %s for %s\n", i, ip.Dir)
 		// We nee to check to see if the import exists in vendor/ folders up the hierachy of the importing package
 		var dp *build.Package
 		if !ip.Goroot && VendorExperiment {
 			for base := ip.Dir; base != ip.Root; base = filepath.Dir(base) {
 				dir := filepath.Join(base, "vendor", i)
-				fmt.Println("dir:", dir)
+				verboseln("dir:", dir)
 				dp, err = buildContext.ImportDir(dir, 0)
 				if err != nil {
 					if os.IsNotExist(err) {
@@ -151,30 +148,30 @@ func listPackage(path string) (*Package, error) {
 				// If it's in the GOROOT we can probably recover
 				switch err.(type) {
 				case *build.MultiplePackageError:
-					fmt.Println("MultiplePackageError, importing Goroot package, trying w/o UseAllFiles")
+					verboseln("MultiplePackageError, importing Goroot package, trying w/o UseAllFiles")
 					dp, err = checkGoroot(dp, err)
 				default:
-					pretty.Print(err)
-					fmt.Println(err.Error())
+					ppln(err)
+					verboseln(err.Error())
 					panic("Unknown error importing GOROOT package: " + dp.ImportPath)
 				}
 			} else {
-				fmt.Println("Warning: Error importing dependent package")
-				pretty.Print(err)
+				verboseln("Warning: Error importing dependent package")
+				ppln(err)
 			}
 		}
 	Found:
-		pretty.Print(dp)
+		ppln(dp)
 		if dp.Goroot {
 			// Treat packages discovered to be in the GOROOT as if the package we're looking for is importing them
 			ds.Add(lp, dp.Imports...)
 		} else {
 			ds.Add(dp, dp.Imports...)
 		}
-		fmt.Println("lp:", lp)
-		fmt.Println("ip:", ip)
+		verboseln("lp:", lp)
+		verboseln("ip:", ip)
 		if lp == ip {
-			fmt.Println("lp == ip")
+			verboseln("lp == ip")
 			imports[dp.ImportPath] = true
 		}
 		deps[dp.ImportPath] = true
@@ -187,8 +184,8 @@ func listPackage(path string) (*Package, error) {
 	}
 	sort.Strings(p.Imports)
 	sort.Strings(p.Deps)
-	fmt.Println("Looking For Package:", path, "in", dir)
-	pretty.Print(p)
+	verboseln("Looking For Package:", path, "in", dir)
+	ppln(p)
 	return p, nil
 }
 
